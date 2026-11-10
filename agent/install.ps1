@@ -21,8 +21,9 @@ node (Join-Path $installDir "agent.mjs") --enroll $EnrollmentUrl
 $nodePath = (Get-Command node).Source
 $scriptPath = Join-Path $installDir "agent.mjs"
 $action = New-ScheduledTaskAction -Execute $nodePath -Argument "`"$scriptPath`""
-$trigger = New-ScheduledTaskTrigger -AtStartup
-$principal = New-ScheduledTaskPrincipal -UserId "SYSTEM" -LogonType ServiceAccount -RunLevel Highest
+$currentUser = "$env:USERDOMAIN\$env:USERNAME"
+$trigger = New-ScheduledTaskTrigger -AtLogOn -User $currentUser
+$principal = New-ScheduledTaskPrincipal -UserId $currentUser -LogonType Interactive -RunLevel Highest
 Register-ScheduledTask -TaskName "GodsGateDefenseAgent" -Action $action -Trigger $trigger -Principal $principal -Description "God's Gate Defense telemetry agent" -Force | Out-Null
 Start-ScheduledTask -TaskName "GodsGateDefenseAgent"
-Write-Host "God's Gate agent installed and scheduled at system startup."
+Write-Host "God's Gate agent installed and scheduled at user logon."

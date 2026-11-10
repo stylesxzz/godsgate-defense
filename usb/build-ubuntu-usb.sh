@@ -4,21 +4,31 @@ set -euo pipefail
 ENROLL_URL="${1:-}"
 OUT_DIR="${2:-./godsgate-usb-kit}"
 if [[ -z "$ENROLL_URL" ]]; then
-  echo "Usage: ./usb/build-ubuntu-usb.sh <one-time-enrollment-url> [output-folder]"
+  echo "Usage: ./build-ubuntu-usb.sh <one-time-enrollment-url> [output-folder]"
   exit 2
 fi
 if [[ "$ENROLL_URL" != https://*/api/agent/bootstrap/* && "$ENROLL_URL" != http://localhost:*/api/agent/bootstrap/* ]]; then
   echo "Enrollment URL must point to /api/agent/bootstrap/<one-time-code> on your trusted God's Gate server." >&2
   exit 2
 fi
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-OUT_DIR="$(mkdir -p "$OUT_DIR" && cd "$OUT_DIR" && pwd)"
+if ! command -v curl >/dev/null 2>&1 || ! command -v tar >/dev/null 2>&1; then
+  echo "curl and tar are required." >&2
+  exit 1
+fi
+API_ROOT="${ENROLL_URL%%/api/agent/bootstrap/*}"
+if [[ -z "$API_ROOT" ]]; then
+  echo "Could not determine the server origin from the enrollment URL." >&2
+  exit 2
+fi
+mkdir -p "$OUT_DIR"
+OUT_DIR="$(cd "$OUT_DIR" && pwd)"
 KIT="$OUT_DIR/GodsGate-USB-Kit"
 mkdir -p "$KIT"
 
-cp "$ROOT/agent/agent.mjs" "$KIT/agent.mjs"
-cp "$ROOT/agent/install.sh" "$KIT/install.sh"
-cp "$ROOT/agent/install.ps1" "$KIT/install.ps1"
+curl -fsSL "$API_ROOT/downloads/agent.mjs" -o "$KIT/agent.mjs"
+curl -fsSL "$API_ROOT/downloads/install.sh" -o "$KIT/install.sh"
+curl -fsSL "$API_ROOT/downloads/install.ps1" -o "$KIT/install.ps1"
+chmod 0755 "$KIT/install.sh"
 printf '%s\n' "$ENROLL_URL" > "$KIT/enrollment.url"
 cat > "$KIT/START-HERE.txt" <<'EOF'
 GOD'S GATE DEFENSE — USB DEPLOYMENT KIT

@@ -137,7 +137,10 @@ function tokenOwnerTotal(rows: any[], owner: string) {
 async function checkPayment(paymentId: string) {
   const payment = db.prepare("SELECT * FROM payments WHERE id = ?").get(paymentId) as any;
   if (!payment) return { status: "not_found" };
-  if (payment.status !== "pending") return { status: payment.status, signature: payment.signature };
+  if (payment.status !== "pending") {
+    const agent = db.prepare("SELECT license_expires_at FROM agents WHERE id = ?").get(payment.agent_id) as any;
+    return { status: payment.status, signature: payment.signature, licenseExpiresAt: agent?.license_expires_at || null };
+  }
   if (Date.parse(payment.expires_at) <= Date.now()) {
     db.prepare("UPDATE payments SET status = 'expired' WHERE id = ? AND status = 'pending'").run(paymentId);
     return { status: "expired" };
@@ -210,6 +213,26 @@ async function createRenewalPayment(agentId: string) {
   `).run(id, agentId, agent.name, paymentAmount, paymentAtomic, tokenMint, recipient, reference, solanaUrl, new Date().toISOString(), expiresAt);
   return { id, agentId, agentName: agent.name, amountUsdt: paymentAmount, mint: tokenMint, recipient, reference, solanaUrl, qrDataUrl, status: "pending", expiresAt };
 }
+
+let paymentSweepBusy = false;
+const paymentSweep = setInterval(async () => {
+  if (paymentSweepBusy) return;
+  paymentSweepBusy = true;
+  try {
+    const pending = db.prepare("SELECT id FROM payments WHERE status = 'pending' ORDER BY created_at ASC LIMIT 40").all() as any[];
+    for (const payment of pending) {
+      try {
+        await checkPayment(payment.id);
+      } catch (error: any) {
+        db.prepare("UPDATE payments SET last_error = ? WHERE id = ? AND status = 'pending'")
+          .run(String(error.message || "Helius verification error").slice(0, 250), payment.id);
+      }
+    }
+  } finally {
+    paymentSweepBusy = false;
+  }
+}, 30000);
+paymentSweep.unref();
 
 app.get("/healthz", async () => ({ ok: true, service: "gods-gate-defense", timestamp: new Date().toISOString() }));
 
@@ -405,7 +428,7 @@ app.get("/downloads/install.ps1", async (_request: any, reply: any) => {
 });
 
 app.get("/downloads/build-ubuntu-usb.sh", async (_request: any, reply: any) => {
-  const content = await fs.promises.readFile(path.join(rootDir, "usb", "build-ubuntu-iso.sh"), "utf8");
+  const content = await fs.promises.readFile(path.join(rootDir, "usb", "build-ubuntu-usb.sh"), "utf8");
   reply.type("text/plain; charset=utf-8").send(content);
 });
 
