@@ -116,7 +116,7 @@ A inscrição troca o código temporário por um token de agente. O código só 
 
 O projeto oferece um construtor de kit USB em `usb/build-ubuntu-usb.sh`. Ele prepara os arquivos de instalação, mas **não é uma imagem ISO** e não formata o dispositivo. Para iniciar por USB, use Ventoy ou ferramenta equivalente com uma ISO oficial do Ubuntu Server, copie o kit para a partição de dados e execute o instalador depois de concluir a instalação do sistema. Consulte [USB deployment](usb/README.md).
 
-## Pagamentos: US$ 50 em USDT por agente/mês
+Consulte [a arquitetura dos agentes](agent/README.md) para ver quais integrações nativas serão necessárias para PC, Android, servidores, sites e filtragem em redes Ethernet/Wi-Fi.\n\n## Pagamentos: US$ 50 em USDT por agente/mês
 
 O QR usa o formato **Solana Pay transfer request**:
 

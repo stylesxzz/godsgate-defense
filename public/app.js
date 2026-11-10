@@ -276,7 +276,7 @@ $("#copy-payment-uri").addEventListener("click", async () => {
   toast("URI Solana Pay copiada.");
 });
 
-api("/api/auth/me").then((data) => showApp(data.email)).catch(() => showLogin());
+api("/api/auth/me").then((data) => showApp(data.username)).catch(() => showLogin());
 setInterval(() => {
   if (!$("#app").classList.contains("hidden") && activePage === "overview") loadOverview().catch(() => {});
 }, 20000);

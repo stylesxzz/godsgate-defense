@@ -4,10 +4,9 @@ import helmet from "@fastify/helmet";
 import jwt from "@fastify/jwt";
 import rateLimit from "@fastify/rate-limit";
 import fastifyStatic from "@fastify/static";
-import bcrypt from "bcryptjs";
 import QRCode from "qrcode";
 import { Keypair, PublicKey } from "@solana/web3.js";
-import { randomUUID } from "node:crypto";
+import { randomUUID, scryptSync, timingSafeEqual } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -25,8 +24,15 @@ const host = env.HOST || "0.0.0.0";
 const publicBaseUrl = (env.PUBLIC_BASE_URL || `http://localhost:${port}`).replace(/\/$/, "");
 const sessionSecret = required("SESSION_SECRET");
 if (sessionSecret.length < 32) throw new Error("SESSION_SECRET must contain at least 32 characters.");
-const adminEmail = required("ADMIN_EMAIL").toLowerCase();
+const adminUsername = required("ADMIN_USERNAME").toLowerCase();
 const adminPasswordHash = required("ADMIN_PASSWORD_HASH");
+function verifyAdminPassword(candidate: string) {
+  const [scheme, saltHex, digestHex] = adminPasswordHash.split("$");
+  if (scheme !== "scrypt" || !saltHex || !digestHex || !/^[a-f0-9]+$/i.test(saltHex) || !/^[a-f0-9]+$/i.test(digestHex)) return false;
+  const expected = Buffer.from(digestHex, "hex");
+  const actual = scryptSync(candidate, Buffer.from(saltHex, "hex"), expected.length, { N: 16384, r: 8, p: 1 });
+  return expected.length === actual.length && timingSafeEqual(expected, actual);
+}
 const tokenMint = "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB";
 const paymentAmount = "50.00";
 const paymentAtomic = "50000000";
@@ -249,18 +255,18 @@ app.post("/api/auth/login", {
   config: { rateLimit: { max: 5, timeWindow: "1 minute" } }
 }, async (request: any, reply: any) => {
   const body = request.body || {};
-  const email = String(body.email || "").trim().toLowerCase();
+  const username = String(body.username || body.email || "").trim().toLowerCase();
   const password = String(body.password || "");
   let validPassword = false;
   try {
-    validPassword = await bcrypt.compare(password, adminPasswordHash);
+    validPassword = verifyAdminPassword(password);
   } catch {
     validPassword = false;
   }
-  if (email !== adminEmail || !validPassword) {
+  if (username !== adminUsername || !validPassword) {
     return reply.code(401).send({ error: "Credenciais inválidas." });
   }
-  const token = await reply.jwtSign({ sub: adminEmail, role: "admin" }, { expiresIn: "12h" });
+  const token = await reply.jwtSign({ sub: adminUsername, role: "admin" }, { expiresIn: "12h" });
   reply.setCookie("gg_session", token, {
     httpOnly: true,
     secure: env.NODE_ENV === "production",
@@ -268,7 +274,7 @@ app.post("/api/auth/login", {
     path: "/",
     maxAge: 12 * 60 * 60
   });
-  return { ok: true, email: adminEmail };
+  return { ok: true, username: adminUsername };
 });
 
 app.post("/api/auth/logout", async (_request: any, reply: any) => {
@@ -278,7 +284,7 @@ app.post("/api/auth/logout", async (_request: any, reply: any) => {
 
 app.get("/api/auth/me", { preHandler: adminOnly }, async (request: any) => ({
   authenticated: true,
-  email: request.user.sub
+  username: request.user.sub
 }));
 
 app.get("/api/admin/overview", { preHandler: adminOnly }, async () => {
