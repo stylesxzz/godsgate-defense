@@ -1,0 +1,11 @@
+node_modules/
+dist/
+.env
+data/
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+coverage/
+.DS_Store
+*.iso
+*.img

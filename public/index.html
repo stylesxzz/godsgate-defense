@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#090b0e">
+  <meta name="description" content="God's Gate Defense — console administrativo de agentes, telemetria e honeypot.">
+  <title>God's Gate Defense · Admin Console</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <div class="ambient ambient-one"></div><div class="ambient ambient-two"></div>
+  <section id="login-view" class="login-wrap">
+    <div class="login-card">
+      <div class="brand brand-login"><span class="brand-mark">G</span><span>GOD'S <b>GATE</b></span></div>
+      <div class="eyebrow">DEFENSE OPERATIONS / ADMIN ACCESS</div>
+      <h1>Controle o perímetro.<br><em>Veja tudo.</em></h1>
+      <p class="muted login-copy">Console privado para administrar agentes, acompanhar tentativas de intrusão e renovar licenças.</p>
+      <form id="login-form">
+        <label for="login-email">E-MAIL ADMINISTRADOR</label>
+        <input id="login-email" name="email" type="email" autocomplete="username" required placeholder="admin@seudominio.com">
+        <label for="login-password">SENHA</label>
+        <input id="login-password" name="password" type="password" autocomplete="current-password" required placeholder="Sua senha segura">
+        <button class="btn btn-primary full" type="submit">Entrar no console <span>↗</span></button>
+      </form>
+      <div id="login-error" class="notice notice-error hidden"></div>
+      <div class="login-foot"><span class="signal-dot"></span> AUTENTICAÇÃO PROTEGIDA · SESSÃO 12H</div>
+    </div>
+    <div class="login-aside">
+      <div class="aside-kicker">GOD'S GATE / SOC</div>
+      <div class="aside-title">DEFESA<br>SEM PONTOS<br><span>CEGOS.</span></div>
+      <div class="aside-bottom"><span>01 / AGENTES</span><span>02 / HONEYPOT</span><span>03 / BILLING</span></div>
+    </div>
+  </section>
+
+  <div id="app" class="app hidden">
+    <aside class="sidebar">
+      <a class="brand" href="/"><span class="brand-mark">G</span><span>GOD'S <b>GATE</b></span></a>
+      <div class="side-label">OPERAÇÃO</div>
+      <nav class="nav">
+        <button class="nav-link active" data-page="overview"><span>⌂</span> Visão geral</button>
+        <button class="nav-link" data-page="agents"><span>◈</span> Agentes <i id="nav-agent-count">0</i></button>
+        <button class="nav-link" data-page="honeypot"><span>⌘</span> Honeypot <i id="nav-honeypot-count">0</i></button>
+        <button class="nav-link" data-page="payments"><span>◎</span> Cobranças</button>
+      </nav>
+      <div class="sidebar-bottom">
+        <div class="system-status"><span class="signal-dot"></span><div><b>SERVIDOR ONLINE</b><small>API / DATABASE</small></div></div>
+        <button id="logout-btn" class="logout-btn">↗ Encerrar sessão</button>
+        <div class="side-version">GODSGATE DEFENSE <span>v1.0.0</span></div>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div><div class="eyebrow">SECURITY OPERATIONS CENTER</div><h1 id="page-title">Visão geral</h1></div>
+        <div class="topbar-right"><span class="live-pill"><span class="signal-dot"></span> AO VIVO</span><div class="admin-chip"><span class="admin-avatar">A</span><span><b>ADMINISTRADOR</b><small id="admin-email">Sessão autenticada</small></span></div></div>
+      </header>
+      <div id="toast" class="toast hidden" role="status"></div>
+      <section id="page-overview" class="page">
+        <div class="welcome-row"><div><h2>Visão do perímetro</h2><p class="muted">Estado dos agentes e atividade defensiva nas últimas 24 horas.</p></div><button class="btn btn-outline" id="refresh-btn">↻ Atualizar</button></div>
+        <div class="stats-grid">
+          <article class="stat-card"><div class="stat-top"><span>AGENTES CADASTRADOS</span><span class="stat-icon">◈</span></div><strong id="stat-agents">—</strong><small>Total da frota</small></article>
+          <article class="stat-card"><div class="stat-top"><span>AGENTES ATIVOS</span><span class="stat-icon green">●</span></div><strong id="stat-active" class="green-text">—</strong><small>Heartbeat recente + licença válida</small></article>
+          <article class="stat-card"><div class="stat-top"><span>RENOVAÇÃO NECESSÁRIA</span><span class="stat-icon amber">◷</span></div><strong id="stat-renewal" class="amber-text">—</strong><small>Vencidos ou vencendo em até 7 dias</small></article>
+          <article class="stat-card"><div class="stat-top"><span>HONEYPOT / 24H</span><span class="stat-icon red">⌘</span></div><strong id="stat-honeypot" class="red-text">—</strong><small>Requisições suspeitas registradas</small></article>
+        </div>
+        <div class="content-grid">
+          <section class="surface"><div class="surface-head"><div><div class="eyebrow">FROTA</div><h3>Agentes recentes</h3></div><button class="text-action" data-goto="agents">Ver todos ↗</button></div><div id="overview-agents" class="table-wrap"></div></section>
+          <section class="surface"><div class="surface-head"><div><div class="eyebrow">DETECÇÃO</div><h3>Honeypot recente</h3></div><button class="text-action" data-goto="honeypot">Investigar ↗</button></div><div id="overview-honeypot" class="activity-list"></div></section>
+        </div>
+        <div class="security-note"><span class="note-icon">i</span><div><b>Monitoramento defensivo</b><p>O honeypot registra tentativas em rotas-isca conhecidas. Ele não executa payloads, não coleta senhas e não substitui firewall, WAF ou EDR.</p></div></div>
+      </section>
+
+      <section id="page-agents" class="page hidden">
+        <div class="welcome-row"><div><h2>Gestão de agentes</h2><p class="muted">Cadastre, instale, renove ou remova qualquer agente da frota.</p></div><button class="btn btn-primary" id="show-create-agent">＋ Novo agente</button></div>
+        <section id="create-agent-card" class="surface create-card hidden">
+          <div class="surface-head"><div><div class="eyebrow">NOVA INSTALAÇÃO</div><h3>Cadastrar agente</h3></div><button class="icon-btn" id="close-create-agent" aria-label="Fechar">×</button></div>
+          <form id="create-agent-form" class="form-row">
+            <div class="field"><label for="agent-name">IDENTIFICAÇÃO DO AGENTE</label><input id="agent-name" name="name" required maxlength="80" placeholder="GODSGATE-EDGE-01"></div>
+            <div class="field"><label for="agent-org">EMPRESA / ORGANIZAÇÃO</label><input id="agent-org" name="organization" required maxlength="100" placeholder="Nome da empresa"></div>
+            <button class="btn btn-primary" type="submit">Criar agente</button>
+          </form>
+          <div id="enrollment-output" class="enrollment-output hidden"></div>
+        </section>
+        <section class="surface"><div class="surface-head"><div><div class="eyebrow">INVENTÁRIO</div><h3>Todos os agentes</h3></div><span class="muted mono" id="agent-total">0 REGISTROS</span></div><div id="agents-table" class="table-wrap"></div></section>
+        <section class="surface usb-surface"><div class="usb-symbol">USB</div><div><div class="eyebrow">IMPLANTAÇÃO OFFLINE</div><h3>Mídia de instalação USB</h3><p class="muted">Gere um código de inscrição de uso único para o agente e use o construtor Ubuntu Server para preparar uma ISO inicializável. A ISO precisa ser gravada em um pendrive com uma ferramenta local, como balenaEtcher.</p><a class="text-action" href="/downloads/build-ubuntu-usb.sh" download>Baixar construtor experimental de ISO ↗</a></div></section>
+      </section>
+
+      <section id="page-honeypot" class="page hidden">
+        <div class="welcome-row"><div><h2>Eventos do Honeypot</h2><p class="muted">Origem, caminho acessado e identificação HTTP das tentativas capturadas.</p></div><button class="btn btn-outline" id="refresh-honeypot">↻ Atualizar</button></div>
+        <div class="security-note"><span class="note-icon">!</span><div><b>Como a captura funciona</b><p>O servidor registra apenas requisições em rotas-isca (por exemplo, /.env, /.git e /wp-admin). IP e User-Agent são dados pessoais/telemetria: mantenha acesso restrito e uma política de retenção adequada. Os registros são removidos automaticamente após 30 dias.</p></div></div>
+        <section class="surface"><div class="surface-head"><div><div class="eyebrow">TRÁFEGO SUSPEITO</div><h3>Últimas tentativas</h3></div><span class="muted mono">RETENÇÃO: 30 DIAS</span></div><div id="honeypot-table" class="table-wrap"></div></section>
+      </section>
+
+      <section id="page-payments" class="page hidden">
+        <div class="welcome-row"><div><h2>Assinaturas e cobranças</h2><p class="muted">Renovação individual de cada agente por US$ 50 em USDT na Solana.</p></div><span class="price-pill">$50 <small>USDT / AGENTE / MÊS</small></span></div>
+        <div class="security-note"><span class="note-icon">◎</span><div><b>Pagamento on-chain</b><p>O QR usa uma referência única Solana Pay. A API consulta a Helius para confirmar a transação, o mint oficial do USDT e o valor recebido na carteira configurada. A licença só é prorrogada após a confirmação.</p></div></div>
+        <section class="surface"><div class="surface-head"><div><div class="eyebrow">HISTÓRICO</div><h3>Pagamentos</h3></div><button class="btn btn-outline" id="refresh-payments">↻ Atualizar</button></div><div id="payments-table" class="table-wrap"></div></section>
+      </section>
+      <footer class="footer">GOD'S GATE DEFENSE <span>·</span> ADMIN CONSOLE <span class="footer-right">© 2026</span></footer>
+    </main>
+  </div>
+
+  <div id="payment-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="payment-title">
+    <div class="modal-card"><button class="icon-btn modal-close" id="close-payment" aria-label="Fechar">×</button><div class="eyebrow">SOLANA PAY / USDT</div><h2 id="payment-title">Renovação do agente</h2><p class="muted" id="payment-agent"></p><div class="qr-frame"><img id="payment-qr" alt="QR Code para pagamento em USDT"></div><div class="amount-large">$50.00 <span>USDT</span></div><div id="payment-status" class="payment-status">Aguardando confirmação on-chain…</div><button id="copy-payment-uri" class="btn btn-outline full">Copiar endereço de pagamento</button><p class="tiny muted">O QR expira em 30 minutos. A licença é atualizada automaticamente após a confirmação pela Helius.</p></div>
+  </div>
+  <script src="/app.js" defer></script>
+</body>
+</html>
