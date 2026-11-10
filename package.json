@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "engines": {
-    "node": ">=20"
+    "node": "22.x"
   },
   "scripts": {
     "dev": "tsx watch src/server.ts",
@@ -31,5 +31,10 @@
     "@types/qrcode": "^1.5.5",
     "tsx": "^4.20.6",
     "typescript": "^5.9.3"
+  },
+  "overrides": {
+    "rpc-websockets": {
+      "uuid": "8.3.2"
+    }
   }
 }
