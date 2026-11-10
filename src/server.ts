@@ -51,6 +51,15 @@ await app.register(jwt, {
   cookie: { cookieName: "gg_session", signed: false }
 });
 await app.register(rateLimit, { max: 120, timeWindow: "1 minute" });
+app.addHook("onRequest", async (request: any) => {
+  const pathname = new URL(String(request.raw.url || "/"), "http://localhost").pathname;
+  if (isHoneypotPath(pathname)) {
+    db.prepare("INSERT INTO honeypot_events (id, source_ip, request_path, method, user_agent, created_at) VALUES (?, ?, ?, ?, ?, ?)")
+      .run(randomUUID(), String(request.ip || "unknown").slice(0, 80), pathname.slice(0, 300),
+        String(request.method || "GET").slice(0, 12), String(request.headers["user-agent"] || "").slice(0, 300),
+        new Date().toISOString());
+  }
+});
 await app.register(fastifyStatic, {
   root: publicDir,
   prefix: "/",
@@ -432,15 +441,7 @@ app.get("/downloads/build-ubuntu-usb.sh", async (_request: any, reply: any) => {
   reply.type("text/plain; charset=utf-8").send(content);
 });
 
-app.setNotFoundHandler(async (request: any, reply: any) => {
-  const rawUrl = String(request.raw.url || "/");
-  const pathname = new URL(rawUrl, "http://localhost").pathname;
-  if (isHoneypotPath(pathname)) {
-    db.prepare("INSERT INTO honeypot_events (id, source_ip, request_path, method, user_agent, created_at) VALUES (?, ?, ?, ?, ?, ?)")
-      .run(randomUUID(), String(request.ip || "unknown").slice(0, 80), pathname.slice(0, 300),
-        String(request.method || "GET").slice(0, 12), String(request.headers["user-agent"] || "").slice(0, 300),
-        new Date().toISOString());
-  }
+app.setNotFoundHandler(async (_request: any, reply: any) => {
   return reply.code(404).send({ error: "Not found" });
 });
 
