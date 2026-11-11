@@ -32,7 +32,7 @@ test("database creates customer tenancy and supports isolated agent ownership", 
   }
 });
 
-test("database migrates an existing agents table without customer_id", () => {
+test("database migrates an existing agents table without customer_id", async () => {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), "godsgate-migrate-"));
   const file = path.join(directory, "legacy.sqlite");
   const Database = (await import("better-sqlite3")).default;
