@@ -6,7 +6,7 @@ import rateLimit from "@fastify/rate-limit";
 import fastifyStatic from "@fastify/static";
 import QRCode from "qrcode";
 import { Keypair, PublicKey } from "@solana/web3.js";
-import { randomUUID, scryptSync, timingSafeEqual } from "node:crypto";
+import { randomBytes, randomUUID, scryptSync, timingSafeEqual } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -90,6 +90,37 @@ const adminOnly = async (request: any, reply: any) => {
     return reply.code(401).send({ error: "Autenticação administrativa necessária." });
   }
 };
+
+function hashPassword(password: string) {
+  const salt = randomBytes(16);
+  const digest = scryptSync(password, salt, 64, { N: 16384, r: 8, p: 1 });
+  return `scrypt${salt.toString("hex")}${digest.toString("hex")}`;
+}
+function verifyPassword(password: string, encoded: string) {
+  const [scheme, saltHex, digestHex] = encoded.split("$");
+  if (scheme !== "scrypt" || !saltHex || !digestHex || !/^[a-f0-9]+$/i.test(saltHex) || !/^[a-f0-9]+$/i.test(digestHex)) return false;
+  const expected = Buffer.from(digestHex, "hex");
+  const actual = scryptSync(password, Buffer.from(saltHex, "hex"), expected.length, { N: 16384, r: 8, p: 1 });
+  return expected.length === actual.length && timingSafeEqual(expected, actual);
+}
+const customerOnly = async (request: any, reply: any) => {
+  try {
+    await request.jwtVerify();
+    if (request.user?.role !== "customer" || !request.user?.sub) throw new Error("Invalid role");
+    const customer = db.prepare("SELECT id, email, display_name FROM customers WHERE id = ? AND disabled_at IS NULL")
+      .get(request.user.sub) as any;
+    if (!customer) throw new Error("Customer disabled");
+    request.customer = customer;
+  } catch {
+    return reply.code(401).send({ error: "Autenticação de cliente necessária." });
+  }
+};
+function setSession(reply: any, token: string) {
+  reply.setCookie("gg_session", token, {
+    httpOnly: true, secure: env.NODE_ENV === "production", sameSite: "strict",
+    path: "/", maxAge: 12 * 60 * 60
+  });
+}
 
 function issueEnrollment(agentId: string) {
   const code = randomToken(32);
@@ -296,7 +327,85 @@ app.get("/api/auth/me", { preHandler: adminOnly }, async (request: any) => ({
   username: request.user.sub
 }));
 
-app.get("/api/admin/overview", { preHandler: adminOnly }, async () => {
+
+// Customer self-service SaaS
+app.post("/api/customer/register", { config: { rateLimit: { max: 3, timeWindow: "1 hour" } } }, async (request: any, reply: any) => {
+  const body = request.body || {};
+  const email = String(body.email || "").trim().toLowerCase();
+  const displayName = String(body.displayName || "").trim().slice(0, 100);
+  const password = String(body.password || "");
+  if (!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email) || !displayName || password.length < 12 || password.length > 200) {
+    return reply.code(400).send({ error: "Informe nome, e-mail válido e senha com pelo menos 12 caracteres." });
+  }
+  const id = randomUUID();
+  try {
+    db.prepare("INSERT INTO customers (id, email, password_hash, display_name, created_at) VALUES (?, ?, ?, ?, ?)")
+      .run(id, email, hashPassword(password), displayName, new Date().toISOString());
+  } catch {
+    return reply.code(409).send({ error: "Este e-mail já possui cadastro." });
+  }
+  const token = await reply.jwtSign({ sub: id, role: "customer" }, { expiresIn: "12h" });
+  setSession(reply, token);
+  return reply.code(201).send({ ok: true, customer: { id, email, displayName } });
+});
+app.post("/api/customer/login", { config: { rateLimit: { max: 5, timeWindow: "1 minute" } } }, async (request: any, reply: any) => {
+  const email = String(request.body?.email || "").trim().toLowerCase();
+  const password = String(request.body?.password || "");
+  const customer = db.prepare("SELECT id, email, display_name, password_hash FROM customers WHERE email = ? AND disabled_at IS NULL").get(email) as any;
+  if (!customer || !verifyPassword(password, customer.password_hash)) return reply.code(401).send({ error: "E-mail ou senha inválidos." });
+  const token = await reply.jwtSign({ sub: customer.id, role: "customer" }, { expiresIn: "12h" });
+  setSession(reply, token);
+  return { ok: true, customer: { id: customer.id, email: customer.email, displayName: customer.display_name } };
+});
+app.get("/api/customer/me", { preHandler: customerOnly }, async (request: any) => ({ customer: request.customer }));
+app.get("/api/customer/overview", { preHandler: customerOnly }, async (request: any) => {
+  const id = request.customer.id;
+  const agents = db.prepare("SELECT * FROM agents WHERE customer_id = ? AND deleted_at IS NULL ORDER BY created_at DESC").all(id) as any[];
+  const events = db.prepare("SELECT e.* FROM agent_events e JOIN agents a ON a.id=e.agent_id WHERE a.customer_id=? ORDER BY e.created_at DESC LIMIT 100").all(id);
+  const payments = db.prepare("SELECT p.id,p.agent_id,p.agent_name,p.amount_usdt,p.status,p.signature,p.created_at,p.expires_at,p.confirmed_at FROM payments p JOIN agents a ON a.id=p.agent_id WHERE a.customer_id=? ORDER BY p.created_at DESC LIMIT 100").all(id);
+  return { customer: request.customer, agents: agents.map(formatAgent), events, payments };
+});
+app.post("/api/customer/agents", { preHandler: customerOnly }, async (request: any, reply: any) => {
+  const name = String(request.body?.name || "").trim().slice(0, 80);
+  const organization = String(request.body?.organization || request.customer.display_name).trim().slice(0, 100);
+  if (!name) return reply.code(400).send({ error: "Informe um nome para o agente." });
+  const id = randomUUID();
+  const createdAt = new Date().toISOString();
+  db.prepare("INSERT INTO agents (id,name,organization,customer_id,created_at) VALUES (?,?,?,?,?)")
+    .run(id,name,organization,request.customer.id,createdAt);
+  db.prepare("INSERT INTO audit_log (id,actor_type,actor_id,action,target_id,created_at) VALUES (?,?,?,?,?,?)")
+    .run(randomUUID(),"customer",request.customer.id,"agent.created",id,createdAt);
+  return reply.code(201).send({ agent: { id,name,organization,createdAt }, ...issueEnrollment(id), payment: await createRenewalPayment(id) });
+});
+app.post("/api/customer/agents/:id/renewal", { preHandler: customerOnly }, async (request: any, reply: any) => {
+  const id = String(request.params.id);
+  if (!db.prepare("SELECT id FROM agents WHERE id=? AND customer_id=? AND deleted_at IS NULL").get(id,request.customer.id))
+    return reply.code(404).send({ error: "Agente não encontrado." });
+  try { return await createRenewalPayment(id); }
+  catch (error: any) { return reply.code(400).send({ error: error.message || "Não foi possível gerar a cobrança." }); }
+});
+app.delete("/api/customer/agents/:id", { preHandler: customerOnly }, async (request: any, reply: any) => {
+  const id = String(request.params.id);
+  const changed = db.prepare("UPDATE agents SET deleted_at=?,token_hash=NULL,enrollment_code_hash=NULL,enrollment_expires_at=NULL WHERE id=? AND customer_id=? AND deleted_at IS NULL")
+    .run(new Date().toISOString(),id,request.customer.id).changes;
+  if (!changed) return reply.code(404).send({ error: "Agente não encontrado." });
+  db.prepare("INSERT INTO audit_log (id,actor_type,actor_id,action,target_id,created_at) VALUES (?,?,?,?,?,?)")
+    .run(randomUUID(),"customer",request.customer.id,"agent.revoked",id,new Date().toISOString());
+  return { ok: true, revoked: true };
+});
+app.get("/api/customer/payments/:id", { preHandler: customerOnly }, async (request: any, reply: any) => {
+  const id = String(request.params.id);
+  const payment = db.prepare("SELECT p.* FROM payments p JOIN agents a ON a.id=p.agent_id WHERE p.id=? AND a.customer_id=?").get(id,request.customer.id) as any;
+  if (!payment) return reply.code(404).send({ error: "Cobrança não encontrada." });
+  let verification: any = { status: payment.status };
+  if (payment.status === "pending") {
+    try { verification = await checkPayment(id); }
+    catch (error: any) { verification = { status: "pending", verificationAvailable: false, message: error.message || "Falha na verificação." }; }
+  }
+  const updated = db.prepare("SELECT status,signature,confirmed_at,expires_at FROM payments WHERE id=?").get(id) as any;
+  return { ...updated, ...verification };
+});
+\napp.get("/api/admin/overview", { preHandler: adminOnly }, async () => {
   const rows = db.prepare("SELECT * FROM agents WHERE deleted_at IS NULL ORDER BY created_at DESC").all() as any[];
   const agents = rows.map(formatAgent);
   const honeypotCount = (db.prepare("SELECT COUNT(*) AS count FROM honeypot_events WHERE created_at >= ?")
