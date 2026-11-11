@@ -405,7 +405,7 @@ app.get("/api/customer/payments/:id", { preHandler: customerOnly }, async (reque
   const updated = db.prepare("SELECT status,signature,confirmed_at,expires_at FROM payments WHERE id=?").get(id) as any;
   return { ...updated, ...verification };
 });
-\napp.get("/api/admin/overview", { preHandler: adminOnly }, async () => {
+app.get("/api/admin/overview", { preHandler: adminOnly }, async () => {
   const rows = db.prepare("SELECT * FROM agents WHERE deleted_at IS NULL ORDER BY created_at DESC").all() as any[];
   const agents = rows.map(formatAgent);
   const honeypotCount = (db.prepare("SELECT COUNT(*) AS count FROM honeypot_events WHERE created_at >= ?")
