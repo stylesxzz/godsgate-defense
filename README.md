@@ -2,7 +2,7 @@
 
 # 🛡️ GOD'S GATE DEFENSE
 
-### Console administrativo, gestão de agentes e monitoramento defensivo
+### Plataforma SaaS, portal do cliente, gestão de agentes e monitoramento defensivo
 
 **Node.js · TypeScript · Fastify · SQLite · Solana Pay · Helius**
 
@@ -13,7 +13,7 @@
 
 </div>
 
-God's Gate Defense é uma aplicação de defesa e administração para controlar agentes instalados em máquinas autorizadas, acompanhar heartbeats e eventos, registrar tentativas de acesso a rotas-isca (*honeypot*) e gerenciar a renovação de licenças.
+God's Gate Defense é uma plataforma SaaS para clientes criarem e gerenciarem agentes de proteção em ativos autorizados, com portal do cliente, console administrativo, cobrança mensal em USDT, telemetria e honeypot isolado para proteger o próprio site.
 
 > **Arquitetura oficial:** consulte [ARCHITECTURE.md](ARCHITECTURE.md) para o escopo SaaS, proteção completa híbrida, cobrança mensal, painéis de cliente/ADM, agentes multiplataforma e honeypot exclusivo do site.
 
@@ -21,7 +21,7 @@ God's Gate Defense é uma aplicação de defesa e administração para controlar
 
 ## Recursos
 
-- **Console administrativo privado:** login com hash bcrypt, sessão JWT em cookie HttpOnly, rate limit e rotas administrativas protegidas.
+- **Portal do cliente:** cadastro/login por e-mail, senha armazenada com scrypt, sessão HttpOnly, agentes e relatórios isolados por conta; disponível em `/client.html`.\n- **Console administrativo privado:** login administrativo com hash scrypt, sessão JWT em cookie HttpOnly, rate limit e rotas administrativas protegidas.\n- **Administração SaaS:** listagem de clientes, agentes, pagamentos e trilha de auditoria via endpoints administrativos.
 - **Gestão de agentes:** criar, emitir inscrição de uso único, instalar em Linux/Windows, visualizar último heartbeat, status da licença, IP, hostname e remover/revogar um agente.
 - **Telemetria:** agentes enviam heartbeats e eventos autenticados por token individual. O token permanente não é exibido na URL de inscrição.
 - **Honeypot HTTP:** registra IP de origem, caminho-isca, método, User-Agent e horário em tentativas contra rotas conhecidas como `/.env`, `/.git`, `/wp-admin` e `/phpmyadmin`; responde às rotas-isca reconhecidas com HTTP 403 e uma página escura estática, sem scripts de loop ou execução de payloads.
@@ -144,7 +144,7 @@ Use atrás de HTTPS. Configure `TRUST_PROXY=true` somente quando o serviço esti
 |---|---|---|
 | `POST` | `/api/auth/login` | Público + rate limit |
 | `POST` | `/api/auth/logout` | Sessão |
-| `GET` | `/api/admin/overview` | Admin |
+| `GET` | `/api/customer/overview` | Cliente autenticado; somente dados do próprio tenant |\n| `POST` | `/api/customer/register` | Público + rate limit |\n| `POST` | `/api/customer/login` | Público + rate limit |\n| `POST/GET` | `/api/customer/agents` | Cliente autenticado; próprio tenant |\n| `POST` | `/api/customer/agents/:id/renewal` | Cliente autenticado; próprio tenant |\n| `DELETE` | `/api/customer/agents/:id` | Cliente autenticado; próprio tenant |\n| `GET` | `/api/admin/customers` | Admin |\n| `GET` | `/api/admin/overview` | Admin |
 | `GET/POST` | `/api/admin/agents` | Admin |
 | `POST` | `/api/admin/agents/:id/enrollment` | Admin |
 | `POST` | `/api/admin/agents/:id/renewal` | Admin |
