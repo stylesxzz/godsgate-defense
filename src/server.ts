@@ -57,14 +57,23 @@ await app.register(jwt, {
   cookie: { cookieName: "gg_session", signed: false }
 });
 await app.register(rateLimit, { max: 120, timeWindow: "1 minute" });
-app.addHook("onRequest", async (request: any) => {
+app.addHook("onRequest", async (request: any, reply: any) => {
   const pathname = new URL(String(request.raw.url || "/"), "http://localhost").pathname;
-  if (isHoneypotPath(pathname)) {
-    db.prepare("INSERT INTO honeypot_events (id, source_ip, request_path, method, user_agent, created_at) VALUES (?, ?, ?, ?, ?, ?)")
-      .run(randomUUID(), String(request.ip || "unknown").slice(0, 80), pathname.slice(0, 300),
-        String(request.method || "GET").slice(0, 12), String(request.headers["user-agent"] || "").slice(0, 300),
-        new Date().toISOString());
-  }
+  if (!isHoneypotPath(pathname)) return;
+
+  db.prepare("INSERT INTO honeypot_events (id, source_ip, request_path, method, user_agent, created_at) VALUES (?, ?, ?, ?, ?, ?)")
+    .run(randomUUID(), String(request.ip || "unknown").slice(0, 80), pathname.slice(0, 300),
+      String(request.method || "GET").slice(0, 12), String(request.headers["user-agent"] || "").slice(0, 300),
+      new Date().toISOString());
+
+  // Safe deception response: record the probe and return a static dark block page.
+  // Do not execute attacker input, freeze the browser, or create an unbounded loop.
+  return reply
+    .code(403)
+    .type("text/html; charset=utf-8")
+    .header("cache-control", "no-store, max-age=0")
+    .header("x-robots-tag", "noindex, nofollow")
+    .send("<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><title>Access denied</title><style>html,body{margin:0;min-height:100%;background:#020504;color:#a7f3d0;font:14px system-ui,sans-serif}body{min-height:100vh;display:grid;place-items:center}.panel{text-align:center;padding:32px;border:1px solid #123d2c;border-radius:16px;background:#06110d;box-shadow:0 0 48px #00ff7a12}h1{font-size:18px;letter-spacing:.16em}p{color:#6b9b83}</style></head><body><main class=\"panel\"><h1>GODSGATE DEFENSE</h1><p>ACCESS DENIED</p></main></body></html>");
 });
 await app.register(fastifyStatic, {
   root: publicDir,
