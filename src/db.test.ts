@@ -37,7 +37,7 @@ test("database migrates an existing agents table without customer_id", async () 
   const file = path.join(directory, "legacy.sqlite");
   const Database = (await import("better-sqlite3")).default;
   const legacy = new Database(file);
-  legacy.exec("CREATE TABLE agents (id TEXT PRIMARY KEY, name TEXT NOT NULL, organization TEXT NOT NULL, created_at TEXT NOT NULL)");
+  legacy.exec("CREATE TABLE agents (id TEXT PRIMARY KEY, name TEXT NOT NULL, organization TEXT NOT NULL, created_at TEXT NOT NULL, deleted_at TEXT)");
   legacy.close();
 
   const db = openDatabase(file);
