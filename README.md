@@ -15,6 +15,8 @@
 
 God's Gate Defense é uma aplicação de defesa e administração para controlar agentes instalados em máquinas autorizadas, acompanhar heartbeats e eventos, registrar tentativas de acesso a rotas-isca (*honeypot*) e gerenciar a renovação de licenças.
 
+> **Arquitetura oficial:** consulte [ARCHITECTURE.md](ARCHITECTURE.md) para o escopo SaaS, proteção completa híbrida, cobrança mensal, painéis de cliente/ADM, agentes multiplataforma e honeypot exclusivo do site.
+
 > **Estado do produto:** esta versão entrega a fundação operacional (painel, API, cadastro/remoção de agentes, heartbeat, eventos, honeypot e cobrança on-chain). O agente incluído reporta presença e telemetria básica. Ele ainda não é um EDR completo, IPS, firewall, antivírus ou sensor de captura de pacotes.
 
 ## Recursos
@@ -22,7 +24,7 @@ God's Gate Defense é uma aplicação de defesa e administração para controlar
 - **Console administrativo privado:** login com hash bcrypt, sessão JWT em cookie HttpOnly, rate limit e rotas administrativas protegidas.
 - **Gestão de agentes:** criar, emitir inscrição de uso único, instalar em Linux/Windows, visualizar último heartbeat, status da licença, IP, hostname e remover/revogar um agente.
 - **Telemetria:** agentes enviam heartbeats e eventos autenticados por token individual. O token permanente não é exibido na URL de inscrição.
-- **Honeypot HTTP:** registra IP de origem, caminho-isca, método, User-Agent e horário em tentativas contra rotas conhecidas como `/.env`, `/.git`, `/wp-admin` e `/phpmyadmin`. Não executa payloads nem coleta conteúdo de formulários.
+- **Honeypot HTTP:** registra IP de origem, caminho-isca, método, User-Agent e horário em tentativas contra rotas conhecidas como `/.env`, `/.git`, `/wp-admin` e `/phpmyadmin`; responde às rotas-isca reconhecidas com HTTP 403 e uma página escura estática, sem scripts de loop ou execução de payloads.
 - **Cobrança mensal:** US$ 50,00 em USDT (SPL) na Solana por agente/mês. QR Solana Pay com referência exclusiva, expiração de 30 minutos e confirmação on-chain via Helius.
 - **Implantação flexível:** inscrição por URL em Linux/Windows ou kit de instalação em pendrive. A criação de mídia inicializável é feita localmente com ferramenta apropriada; o site não tenta gravar discos diretamente.
 - **Persistência:** SQLite com WAL e volume Docker.
