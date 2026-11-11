@@ -81,7 +81,6 @@ export function openDatabase(filePath: string) {
       last_error TEXT
     );
     CREATE INDEX IF NOT EXISTS idx_agents_deleted ON agents(deleted_at);
-    CREATE INDEX IF NOT EXISTS idx_agents_customer ON agents(customer_id);
     CREATE INDEX IF NOT EXISTS idx_audit_created ON audit_log(created_at);
     CREATE INDEX IF NOT EXISTS idx_events_created ON agent_events(created_at);
     CREATE INDEX IF NOT EXISTS idx_honeypot_created ON honeypot_events(created_at);
@@ -92,5 +91,6 @@ export function openDatabase(filePath: string) {
   if (!agentColumns.some((column) => column.name === "customer_id")) {
     db.exec("ALTER TABLE agents ADD COLUMN customer_id TEXT REFERENCES customers(id)");
   }
+  db.exec("CREATE INDEX IF NOT EXISTS idx_agents_customer ON agents(customer_id)");
   return db;
 }
