@@ -419,7 +419,8 @@ app.get("/api/customer/payments/:id", { preHandler: customerOnly }, async (reque
       renewalDue: agents.filter((agent) => agent.status === "renewal_due").length,
       offline: agents.filter((agent) => agent.status === "offline").length,
       honeypot24h: honeypotCount,
-      events24h: eventCount
+      events24h: eventCount,
+      customers: (db.prepare("SELECT COUNT(*) AS count FROM customers WHERE disabled_at IS NULL").get() as any).count
     },
     agents: agents.slice(0, 8),
     honeypot: db.prepare("SELECT * FROM honeypot_events ORDER BY created_at DESC LIMIT 8").all(),
@@ -427,6 +428,20 @@ app.get("/api/customer/payments/:id", { preHandler: customerOnly }, async (reque
   };
 });
 
+app.get("/api/admin/customers", { preHandler: adminOnly }, async () => ({
+  customers: db.prepare("SELECT c.id,c.email,c.display_name,c.created_at,c.disabled_at,COUNT(a.id) AS agent_count,SUM(CASE WHEN a.deleted_at IS NULL AND a.license_expires_at > ? THEN 1 ELSE 0 END) AS licensed_agents FROM customers c LEFT JOIN agents a ON a.customer_id=c.id GROUP BY c.id ORDER BY c.created_at DESC").all(new Date().toISOString())
+}));
+app.post("/api/admin/customers/:id/disable", { preHandler: adminOnly }, async (request: any, reply: any) => {
+  const id=String(request.params.id);
+  const changed=db.prepare("UPDATE customers SET disabled_at=? WHERE id=? AND disabled_at IS NULL").run(new Date().toISOString(),id).changes;
+  if(!changed) return reply.code(404).send({error:"Cliente não encontrado ou já desativado."});
+  db.prepare("INSERT INTO audit_log (id,actor_type,actor_id,action,target_id,created_at) VALUES (?,?,?,?,?,?)").run(randomUUID(),"admin",adminUsername,"customer.disabled",id,new Date().toISOString());
+  return {ok:true};
+});
+app.get("/api/admin/audit", { preHandler: adminOnly }, async (request: any) => {
+  const limit=Math.max(1,Math.min(200,Number(request.query?.limit||100)));
+  return {events:db.prepare("SELECT * FROM audit_log ORDER BY created_at DESC LIMIT ?").all(limit)};
+});
 app.get("/api/admin/agents", { preHandler: adminOnly }, async () => {
   const rows = db.prepare("SELECT * FROM agents WHERE deleted_at IS NULL ORDER BY created_at DESC").all() as any[];
   return { agents: rows.map(formatAgent) };
