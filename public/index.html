@@ -43,6 +43,7 @@
       <nav class="nav">
         <button class="nav-link active" data-page="overview"><span>⌂</span> Visão geral</button>
         <button class="nav-link" data-page="agents"><span>◈</span> Agentes <i id="nav-agent-count">0</i></button>
+        <button class="nav-link" data-page="customers"><span>◎</span> Clientes</button>
         <button class="nav-link" data-page="honeypot"><span>⌘</span> Honeypot <i id="nav-honeypot-count">0</i></button>
         <button class="nav-link" data-page="payments"><span>◎</span> Cobranças</button>
       </nav>
@@ -87,6 +88,11 @@
         </section>
         <section class="surface"><div class="surface-head"><div><div class="eyebrow">INVENTÁRIO</div><h3>Todos os agentes</h3></div><span class="muted mono" id="agent-total">0 REGISTROS</span></div><div id="agents-table" class="table-wrap"></div></section>
         <section class="surface usb-surface"><div class="usb-symbol">USB</div><div><div class="eyebrow">IMPLANTAÇÃO OFFLINE</div><h3>Mídia de instalação USB</h3><p class="muted">Gere um código de inscrição de uso único para o agente e use o construtor Ubuntu Server para preparar uma ISO inicializável. A ISO precisa ser gravada em um pendrive com uma ferramenta local, como balenaEtcher.</p><a class="text-action" href="/downloads/build-ubuntu-usb.sh" download>Baixar construtor experimental de ISO ↗</a></div></section>
+      </section>
+
+      <section id="page-customers" class="page hidden">
+        <div class="welcome-row"><div><h2>Clientes da plataforma</h2><p class="muted">Contas cadastradas e quantidade de agentes vinculados.</p></div><button class="btn btn-outline" id="refresh-customers">↻ Atualizar</button></div>
+        <section class="surface"><div class="surface-head"><div><div class="eyebrow">SAAS / TENANTS</div><h3>Contas de clientes</h3></div></div><div id="customers-table" class="table-wrap"></div></section>
       </section>
 
       <section id="page-honeypot" class="page hidden">
