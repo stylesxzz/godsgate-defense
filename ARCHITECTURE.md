@@ -154,7 +154,9 @@ O honeypot protege a própria superfície web e infraestrutura do GodsGate. Ele 
 
 ### Resposta visual de bloqueio
 
-Quando houver sinal suficientemente forte, o site pode apresentar uma página escura de bloqueio (“black screen”) e encerrar a sessão ou responder com HTTP 403/429. Essa tela é apenas uma resposta visual; o bloqueio real deve ocorrer no proxy/WAF, firewall ou camada de aplicação.
+**Implementado no servidor atual:** quando uma requisição corresponde a uma rota-isca reconhecida, o backend registra o evento e responde imediatamente com HTTP 403 e uma página HTML estática escura (“black screen”), sem executar scripts no navegador. O limite global de requisições do Fastify também permanece ativo.
+
+Essa resposta é uma contenção inicial na camada HTTP; ela não equivale a bloqueio persistente de IP nem substitui WAF/firewall. Bloqueio temporário por origem, reputação, correlação de tentativas e allowlists permanecem como evolução planejada.
 
 **Não implementar loop infinito, scripts que travem o navegador, consumo deliberado de CPU/memória, downloads maliciosos ou contra-ataques.** Um loop pode prejudicar a própria infraestrutura, usuários legítimos e serviços compartilhados, além de transformar a defesa em negação de serviço. Se for útil atrasar scanners, usar apenas respostas controladas, curtas, limitadas por tempo e recursos, com circuit breaker.
 
