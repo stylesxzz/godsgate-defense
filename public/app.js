@@ -112,6 +112,12 @@ async function loadAgents() {
   $("#nav-agent-count").textContent = data.agents.length;
 }
 
+async function loadCustomers() {
+  const data = await api("/api/admin/customers");
+  const rows = data.customers || [];
+  $("#customers-table").innerHTML = rows.length ? `<table class="data-table"><thead><tr><th>CLIENTE</th><th>AGENTES</th><th>LICENCIADOS</th><th>CADASTRO</th><th>STATUS</th><th>AÇÃO</th></tr></thead><tbody>${rows.map((customer) => `
+    <tr><td><span class="primary-cell">${escapeHtml(customer.display_name)}</span><span class="secondary-cell">${escapeHtml(customer.email)}</span></td><td>${customer.agent_count || 0}</td><td>${customer.licensed_agents || 0}</td><td>${dateLabel(customer.created_at)}</td><td>${customer.disabled_at ? "DESATIVADO" : "ATIVO"}</td><td>${customer.disabled_at ? "—" : `<button class="mini-btn danger" data-customer-disable="${escapeHtml(customer.id)}">Desativar</button>`}</td></tr>`).join("")}</tbody></table>` : '<div class="empty-state">Nenhum cliente cadastrado.</div>';
+}
 async function loadHoneypot() {
   const data = await api("/api/admin/honeypot?limit=200");
   $("#honeypot-table").innerHTML = honeypotRows(data.events);
@@ -128,11 +134,11 @@ async function navigate(page) {
   clearInterval(paymentPoll);
   $$(".nav-link").forEach((button) => button.classList.toggle("active", button.dataset.page === page));
   $$(".page").forEach((section) => section.classList.toggle("hidden", section.id !== `page-${page}`));
-  const titles = { overview: "Visão geral", agents: "Agentes", honeypot: "Honeypot", payments: "Cobranças" };
+  const titles = { overview: "Visão geral", agents: "Agentes", customers: "Clientes", honeypot: "Honeypot", payments: "Cobranças" };
   $("#page-title").textContent = titles[page] || "Console";
   try {
     if (page === "overview") await loadOverview();
-    if (page === "agents") await loadAgents();
+    if (page === "agents") await loadAgents();\n    if (page === "customers") await loadCustomers();
     if (page === "honeypot") await loadHoneypot();
     if (page === "payments") await loadPayments();
   } catch (error) {
@@ -238,7 +244,7 @@ $("#logout-btn").addEventListener("click", async () => {
 
 $$(".nav-link").forEach((button) => button.addEventListener("click", () => navigate(button.dataset.page)));
 $$("[data-goto]").forEach((button) => button.addEventListener("click", () => navigate(button.dataset.goto)));
-$("#refresh-btn").addEventListener("click", () => loadOverview().then(() => toast("Painel atualizado.")).catch((e) => toast(e.message, true)));
+$("#refresh-customers").addEventListener("click", () => loadCustomers().then(() => toast("Clientes atualizados.")).catch((e) => toast(e.message, true)));\n$("#refresh-btn").addEventListener("click", () => loadOverview().then(() => toast("Painel atualizado.")).catch((e) => toast(e.message, true)));
 $("#refresh-honeypot").addEventListener("click", () => loadHoneypot().then(() => toast("Eventos atualizados.")).catch((e) => toast(e.message, true)));
 $("#refresh-payments").addEventListener("click", () => loadPayments().then(() => toast("Cobranças atualizadas.")).catch((e) => toast(e.message, true)));
 $("#show-create-agent").addEventListener("click", () => { $("#create-agent-card").classList.remove("hidden"); $("#enrollment-output").classList.add("hidden"); });
@@ -249,6 +255,13 @@ $("#create-agent-form").addEventListener("submit", async (event) => {
 });
 
 document.addEventListener("click", async (event) => {
+  const disableCustomer = event.target.closest("[data-customer-disable]");
+  if (disableCustomer) {
+    if (!confirm("Desativar esta conta? O cliente perderá acesso ao portal.")) return;
+    try { await api(`/api/admin/customers/${encodeURIComponent(disableCustomer.dataset.customerDisable)}/disable`, { method: "POST" }); toast("Conta desativada."); await loadCustomers(); }
+    catch (error) { toast(error.message, true); }
+    return;
+  }
   const action = event.target.closest("[data-action]");
   if (action) {
     action.disabled = true;
